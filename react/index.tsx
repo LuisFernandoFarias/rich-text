@@ -114,7 +114,7 @@ const sanitizerConfig = {
   ],
   allowedAttributes: {
     '*': ['class', 'title'],
-    a: ['href', 'target'],
+    a: ['href', 'target', 'rel'],
     img: ['src', 'alt'],
     iframe: ['frameborder', 'height', 'src', 'width', 'style'],
   },
@@ -134,6 +134,19 @@ const getTargetFromUrl = (url: string) => {
   const hastTargetBlank = qs.includes('target=_blank')
 
   return hastTargetBlank ? 'target=_blank' : ''
+}
+
+const getRelFromUrl = (url: string) => {
+  const urlSplit = url.split('?')
+
+  if (urlSplit.length < 2) {
+    return ''
+  }
+
+  const [, qs] = urlSplit
+  const hasRelNoopener = qs.includes('rel=noopener-noreferrer')
+
+  return hasRelNoopener ? "rel='noopener noreferrer'" : ''
 }
 
 const sanitizeFont = (font: string) => {
@@ -234,12 +247,20 @@ function RichText({
     renderer.current.heading = renderHeading(handles)
     renderer.current.link = (href: string, title: string, content: string) => {
       const targetAtr = getTargetFromUrl(href)
+      const relAtr = getRelFromUrl(href)
+
       const targetRemoved = targetAtr
         ? href.replace(/target=_blank/, '').replace(/\?&/, '?')
         : href
 
+      const relRemoved = relAtr
+        ? targetRemoved
+            .replace(/rel=noopener-noreferrer/, '')
+            .replace(/\?&/, '?')
+        : targetRemoved
+
       // clean trailing ? or &
-      const cleanHref = targetRemoved.replace(/(\?|&)$/, '')
+      const cleanHref = relRemoved.replace(/(\?|&)$/, '')
       const titleAtr = title ? `title="${title}"` : ''
 
       let finalLink = `<a class="${handles.link}" href="${cleanHref}"`
@@ -250,6 +271,10 @@ function RichText({
 
       if (targetAtr) {
         finalLink += ` ${targetAtr}`
+      }
+
+      if (relAtr) {
+        finalLink += ` ${relAtr}`
       }
 
       finalLink += `>${content}</a>`
